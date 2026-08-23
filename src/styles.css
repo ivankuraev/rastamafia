@@ -1,0 +1,78 @@
+:root {
+  --bg: #000;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.app {
+  position: fixed;
+  inset: 0;
+}
+
+.smoke-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+}
+
+.smoke-bg.is-visible {
+  opacity: 1;
+}
+
+.logo-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+}
+
+.logo-layer.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.watermark {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 0 4vw;
+  font-family: "Arial Black", Arial, sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.35em;
+  font-size: clamp(1.4rem, 9vw, 6rem);
+  text-align: center;
+  color: rgba(255, 255, 255, 0.1);
+  text-shadow: 0 0 32px rgba(255, 255, 255, 0.04);
+  user-select: none;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.6s ease;
+}
+
+.watermark.hidden {
+  opacity: 0;
+}
