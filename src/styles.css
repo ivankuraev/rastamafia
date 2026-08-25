@@ -16,6 +16,9 @@ body,
 body {
   background: var(--bg);
   overflow: hidden;
+  font-family: "Montserrat", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .app {
@@ -39,29 +42,50 @@ body {
 .logo-layer {
   position: fixed;
   inset: 0;
-  z-index: 1;
+  z-index: 6;
   display: grid;
   place-items: center;
   opacity: 0;
-  transition: opacity 0.6s ease;
+  transform-origin: center center;
+  will-change: transform;
+  transition: opacity 0.6s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: none;
 }
 
 .logo-layer.is-visible {
   opacity: 1;
+}
+
+/* Mobile menu mode: never animate the transform, only opacity — otherwise the
+   logo visibly slides when the burger menu opens/closes. */
+.logo-layer--menu {
+  transition: opacity 0.3s ease;
+}
+
+/* Only the home (centered, non-flying) logo should capture pointer events,
+   so the full-screen layer never blocks clicks on content screens. */
+.logo-layer.is-visible:not(.is-flying) {
   pointer-events: auto;
+}
+
+/* The burger-menu logo must never capture pointer events — it overlaps the
+   menu items, and its <canvas> (set to interactive by SVG3D) would otherwise
+   eat the taps. This beats the inline `pointer-events:auto` on the canvas. */
+.logo-layer--menu,
+.logo-layer--menu * {
+  pointer-events: none !important;
 }
 
 .watermark {
   position: fixed;
   inset: 0;
-  z-index: 2;
+  z-index: 30;
   display: grid;
   place-items: center;
   margin: 0;
   padding: 0 4vw;
-  font-family: "Arial Black", Arial, sans-serif;
-  font-weight: 700;
+  font-family: "Montserrat", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-weight: 900;
   letter-spacing: 0.35em;
   font-size: clamp(1.4rem, 9vw, 6rem);
   text-align: center;
@@ -69,10 +93,1062 @@ body {
   text-shadow: 0 0 32px rgba(255, 255, 255, 0.04);
   user-select: none;
   pointer-events: none;
+  /* Opaque loading cover: it must actually hide the scene behind it during
+     load, otherwise you can see the logo/smoke "rendering" through the faint
+     text. The scene renders underneath while this is up, then this fades to
+     reveal the finished result. */
+  background: #000;
   opacity: 1;
   transition: opacity 0.6s ease;
 }
 
 .watermark.hidden {
   opacity: 0;
+  /* Delay the fade-out slightly so the scene (which starts rendering at the
+     same moment) is already drawn behind this opaque cover before it lifts —
+     giving a clean "swap" instead of watching the logo build up. */
+  transition: opacity 0.5s ease 0.25s;
+}
+
+/* ---------- Top navigation ---------- */
+.nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem clamp(1rem, 4vw, 3rem);
+  opacity: 0;
+  transform: translateY(-12px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+  pointer-events: none;
+}
+
+.nav.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* Keep the top bar (brand + burger) above the burger-menu overlay so the
+   toggle stays clickable to close the menu. */
+.nav.is-open {
+  z-index: 30;
+}
+
+.nav__brand {
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  font-size: clamp(0.85rem, 2.4vw, 1.05rem);
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 0 18px rgba(255, 255, 255, 0.15);
+}
+
+.nav__list {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0.3rem;
+  list-style: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.nav__item {
+  position: relative;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 0.5rem 1.1rem;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.55);
+  transition: color 0.25s ease;
+}
+
+.nav__item:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.nav__item.is-active {
+  color: #fff;
+}
+
+.nav__pill {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.08);
+}
+
+.nav__label {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------- Hamburger (mobile only) ---------- */
+.nav__burger {
+  display: none;
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  cursor: pointer;
+}
+
+.nav__burger-bar {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 20px;
+  height: 2px;
+  border-radius: 2px;
+  background: #fff;
+  transition: transform 0.3s ease, opacity 0.2s ease;
+}
+
+.nav__burger-bar:nth-child(1) {
+  transform: translate(-50%, -7px);
+}
+
+.nav__burger-bar:nth-child(2) {
+  transform: translate(-50%, 0);
+}
+
+.nav__burger-bar:nth-child(3) {
+  transform: translate(-50%, 7px);
+}
+
+.nav__burger.is-open .nav__burger-bar:nth-child(1) {
+  transform: translate(-50%, 0) rotate(45deg);
+}
+
+.nav__burger.is-open .nav__burger-bar:nth-child(2) {
+  opacity: 0;
+}
+
+.nav__burger.is-open .nav__burger-bar:nth-child(3) {
+  transform: translate(-50%, 0) rotate(-45deg);
+}
+
+/* ---------- Burger menu overlay (mobile only) ---------- */
+.nav__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: calc(env(safe-area-inset-top, 0px) + 1rem) 1.5rem
+    calc(env(safe-area-inset-bottom, 0px) + 1rem);
+  /* "Liquid glass": quite transparent so the current screen shows through,
+     with a heavy blur + slight saturation for that frosted, refractive feel.
+     A faint inner highlight edge sells the glass sheet. */
+  background: rgba(6, 6, 8, 0.42);
+  backdrop-filter: blur(30px) saturate(135%);
+  -webkit-backdrop-filter: blur(30px) saturate(135%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+}
+
+.nav__menu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.nav__menu-item {
+  width: 100%;
+  text-align: center;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  font: inherit;
+  font-size: clamp(1.4rem, 7vw, 2rem);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.72);
+  transition: color 0.25s ease, background 0.25s ease;
+}
+
+.nav__menu-item:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.nav__menu-item.is-active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* Collapse the top nav into a burger on small screens. */
+@media (max-width: 760px) {
+  .nav__list {
+    display: none;
+  }
+
+  .nav__burger {
+    display: inline-flex;
+  }
+}
+
+@media (min-width: 761px) {
+  .nav__burger {
+    display: none;
+  }
+
+  .nav__overlay {
+    display: none;
+  }
+}
+
+/* ---------- Content screens ---------- */
+.screen--content {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 7rem clamp(1rem, 5vw, 4rem) 3rem;
+  overflow-y: auto;
+}
+
+.screen__inner {
+  margin: auto;
+  width: min(960px, 100%);
+  text-align: center;
+}
+
+/* ---------- Book: horizontal ribbon / slider ---------- */
+.book__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 1.2rem auto 0;
+}
+
+.book__tab {
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.6);
+  font: inherit;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: color 0.25s ease, background 0.25s ease, border-color 0.25s ease;
+}
+
+.book__tab:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.book__tab.is-active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.book__ribbon {
+  position: relative;
+  width: 100vw;
+  margin: 1.5rem 0 0 calc(50% - 50vw);
+  display: flex;
+  gap: 0;
+  align-items: center;
+  height: min(520px, 78vw);
+  padding-left: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  /* Allow the browser's native horizontal pan so touch devices get a free,
+     momentum-backed drag of the strip. (Vertical swipes pass through to the
+     page scroll.) */
+  touch-action: pan-x;
+  cursor: grab;
+  scrollbar-width: none;
+}
+
+/* In the expanded state the strip runs edge-to-edge; align its start with the
+   page content so the cover sits in place, the rest extend to the window edge. */
+.book__ribbon:not(.is-hero) {
+  padding-left: clamp(1rem, 5vw, 4rem);
+  padding-right: clamp(1rem, 5vw, 4rem);
+}
+
+.book__ribbon::-webkit-scrollbar {
+  display: none;
+}
+
+.book__ribbon.is-dragging {
+  cursor: grabbing;
+  scroll-behavior: auto;
+}
+
+.book__hint {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.book__card {
+  position: relative;
+  flex: 0 0 auto;
+  height: 100%;
+  aspect-ratio: 945 / 1181;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.05);
+  transform-origin: center center;
+  will-change: transform, opacity;
+}
+
+.book__card img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  -webkit-user-drag: none;
+  user-select: none;
+  transition: filter 0.3s ease;
+}
+
+/* Non-intrusive hover affordance: slight dim + centered zoom glyph (no scale). */
+.book__card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0);
+  transition: background 0.3s ease;
+  pointer-events: none;
+}
+
+.book__card::before {
+  content: "⊕";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 2rem;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+/* Collapsed (cover only): hide the zoom affordance. */
+.book__ribbon.is-hero .book__card::before,
+.book__ribbon.is-hero .book__card::after {
+  opacity: 0;
+}
+
+.book__card:hover::after {
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.book__card:hover::before {
+  opacity: 0.92;
+}
+
+.book__card:hover img {
+  filter: brightness(1.08);
+}
+
+/* In the expanded ribbon the strip is seamless: only the outer corners of the
+   first (left) and last (right) cards are rounded; the cover stays fully
+   rounded while collapsed. */
+.book__ribbon:not(.is-hero) .book__card {
+  border-radius: 0;
+}
+
+.book__ribbon:not(.is-hero) .book__card:first-child {
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+}
+
+.book__ribbon:not(.is-hero) .book__card:last-child {
+  border-top-right-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+/* ---------- Book lightbox (portal to body) ---------- */
+.book__lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(1rem, 4vw, 3rem);
+  background: rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.book__full {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0 auto;
+  max-width: min(92vw, 1100px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6),
+    0 0 40px rgba(255, 255, 255, 0.06);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.book__back {
+  position: fixed;
+  top: 1.2rem;
+  left: 1.2rem;
+  z-index: 101;
+  padding: 0.55rem 1.1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: background 0.25s ease;
+}
+
+.book__back:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+/* Bottom navigation bar: prev arrow | counter | next arrow. On every
+   viewport the bar sits at the bottom; on mobile the arrows flank the
+   counter as requested. */
+.book__nav-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(1.25rem, 7vw, 3rem);
+  padding-top: 1rem;
+}
+
+.book__nav {
+  width: 3.2rem;
+  height: 3.2rem;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.25s ease, transform 0.25s ease;
+}
+
+.book__nav:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.book__nav svg {
+  display: block;
+}
+
+/* Desktop: the prev/next arrows float at the left/right edges (vertically
+   centred), while the bar itself only holds the counter pinned to the bottom
+   centre. On mobile these are reset to static so they sit in the bar. */
+.book__nav--prev {
+  position: absolute;
+  left: clamp(1rem, 4vw, 3rem);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.book__nav--next {
+  position: absolute;
+  right: clamp(1rem, 4vw, 3rem);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.book__counter {
+  min-width: 3.5rem;
+  text-align: center;
+  font-size: 0.9rem;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.screen__eyebrow {
+  margin: 0 0 0.6rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.screen__title {
+  margin: 0 0 1rem;
+  font-size: clamp(2rem, 7vw, 4rem);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #fff;
+  text-shadow: 0 0 40px rgba(255, 255, 255, 0.12);
+}
+
+.screen__text {
+  margin: 0 auto 2.5rem;
+  max-width: 46ch;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+/* ---------- Stub cards ---------- */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.cards--albums {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.card {
+  padding: 1rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  text-align: left;
+}
+
+.card__tag {
+  display: block;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.card__ph {
+  margin-top: 0.8rem;
+  height: 90px;
+  border-radius: 10px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.1),
+    rgba(255, 255, 255, 0.02)
+  );
+}
+
+.card--album {
+  text-align: center;
+}
+
+.card__cover {
+  margin: 0.2rem auto 0.8rem;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.12),
+    rgba(255, 255, 255, 0.03)
+  );
+}
+
+/* ---------- Contacts: centered Instagram wordmark ---------- */
+.contacts {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.4rem;
+}
+
+.contacts__ig {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  opacity: 0.92;
+  text-decoration: none;
+  transition: opacity 0.25s ease;
+}
+
+.contacts__ig:hover {
+  opacity: 1;
+}
+
+.contacts__ig-logo {
+  width: min(280px, 60vw);
+  height: auto;
+  /* wordmark ships black; paint it white to fit the dark theme */
+  filter: brightness(0) invert(1);
+  transition: transform 0.25s ease;
+}
+
+.contacts__ig:hover .contacts__ig-logo {
+  transform: translateY(-2px);
+}
+
+.contacts__ig-handle {
+  font-size: 0.95rem;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.55);
+  text-decoration: none;
+  transition: color 0.25s ease;
+}
+
+.contacts__ig:hover .contacts__ig-handle {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ---------- Music: album tiles (initial grid) ---------- */
+.albums {
+  list-style: none;
+  margin: 0 auto;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1.4rem;
+  max-width: 980px;
+}
+
+/* Shared header: title on the left, "back" button on the right when an album
+   is open. Sits at the same place in both views so the content below it
+   (tiles grid or split) never jumps. */
+.music__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+
+.music__head-titles {
+  min-width: 0;
+}
+
+.music__head .screen__eyebrow {
+  margin: 0 0 0.4rem;
+}
+
+.music__head .screen__title {
+  margin: 0;
+  /* adaptive size so long album titles stay on one line */
+  font-size: clamp(1.5rem, 4vw, 2.6rem);
+  white-space: nowrap;
+}
+
+.album {
+  margin: 0;
+}
+
+.album__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.album__cover {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 14px;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.03));
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.album__card:hover .album__cover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+}
+
+.album__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.album__cover-ph {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04));
+}
+
+.album__play {
+  position: absolute;
+  right: 0.7rem;
+  bottom: 0.7rem;
+  width: 2.4rem;
+  height: 2.4rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  color: #000;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transform: translateY(8px) scale(0.9);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.album__card:hover .album__play {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.album__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.album__title {
+  font-weight: 700;
+  color: #fff;
+  font-size: 0.95rem;
+  line-height: 1.25;
+}
+
+.album__year {
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ---------- Music: split view (list + player) ---------- */
+.music__split {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 2rem;
+  margin-top: 0;
+  align-items: start;
+  text-align: left;
+  min-height: 0;
+}
+
+/* Music screen is always top-aligned (not vertically centered) so the gap
+   from the title to the content is identical in the tiles and split views. */
+.screen__inner--music {
+  margin: 0 auto;
+}
+
+/* On desktop, once an album is opened the whole split fits the viewport
+   height: no page scroll, the list and the player fill the available space
+   and scroll internally when needed. */
+@media (min-width: 761px) {
+  .screen__inner--fill {
+    height: 100%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .screen__inner--fill .music__split {
+    flex: 1 1 auto;
+    min-height: 0;
+    align-items: stretch;
+  }
+
+  .screen__inner--fill .music__list {
+    position: static;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .screen__inner--fill .music__items {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+  }
+
+  .screen__inner--fill .music__player {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .screen__inner--fill .album-embed {
+    flex: 1 1 auto;
+    min-height: 0;
+    align-self: flex-start;
+    max-width: 628px;
+  }
+}
+
+.music__list {
+  position: sticky;
+  top: 0;
+}
+
+.music__back {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0.4rem 0;
+  border: 0;
+  background: none;
+  color: rgba(255, 255, 255, 0.6);
+  font: inherit;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.25s ease;
+}
+
+.music__back:hover {
+  color: #fff;
+}
+
+.music__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 72vh;
+  overflow-y: auto;
+}
+
+.music__item {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.music__item:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.music__item.is-active {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.music__item-cover {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.03));
+}
+
+.music__item-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.music__item-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.music__item-title {
+  font-weight: 600;
+  color: #fff;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.music__item-year {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.music__player {
+  min-width: 0;
+}
+
+.album-embed {
+  position: relative;
+  width: 100%;
+  max-width: 614px;
+  aspect-ratio: 614 / 556;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #f5f5f5;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+.album-embed iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+@media (max-width: 760px) {
+  .music__split {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    position: relative;
+  }
+
+  /* On mobile, show the player (square Yandex embed) first, then the album
+     list below it for selection. `order` keeps the desktop 2-column layout
+     (list left, player right) untouched. */
+  .music__player {
+    order: 1;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* The list must sit ABOVE the player in the stacking order so the
+     positioned Yandex iframe never intercepts taps on the album buttons. */
+  .music__list {
+    order: 2;
+    position: relative;
+    z-index: 2;
+  }
+
+  /* Square player on mobile. */
+  .album-embed {
+    aspect-ratio: 1 / 1;
+  }
+
+  /* Hide the "back" link; the album list below acts as the selector. */
+  .music__back {
+    display: none;
+  }
+
+  /* Long album titles may wrap onto a second line. */
+  .music__head .screen__title {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  /* Don't trap scrolling in a nested container — let the whole screen scroll.
+     A nested scroll region can swallow taps on the album items on touch
+     devices. */
+  .music__items {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .music__item {
+    touch-action: manipulation;
+  }
+}
+
+/* Book lightbox on mobile: three zones — Назад pinned at the top (fixed),
+   the image filling the central area, and the arrows + counter at the very
+   bottom. `object-fit: contain` fits the image by its shorter side, so no
+   separate orientation handling is needed. */
+@media (max-width: 760px) {
+  .book__lightbox {
+    padding: 0.75rem;
+  }
+
+  /* Back button rejoins the flow so the top zone is reserved and the image
+     starts below it (position: fixed would make the image ignore its height). */
+  .book__back {
+    position: static;
+    align-self: flex-start;
+  }
+
+  /* Arrows return into the flow so they flank the counter at the bottom. */
+  .book__nav--prev,
+  .book__nav--next {
+    position: static;
+    transform: none;
+  }
+
+  .book__full {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
 }
